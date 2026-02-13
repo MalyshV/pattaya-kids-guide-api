@@ -9,9 +9,7 @@ const envSchema = z.object({
     .default("3000")
     .transform((val) => Number(val)),
 
-  NODE_ENV: z
-    .enum(["development", "production"])
-    .default("development"),
+  NODE_ENV: z.enum(["development", "production"]).default("development"),
 });
 
 const parsed = envSchema.safeParse(process.env);
