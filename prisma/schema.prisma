@@ -11,5 +11,61 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+}
+
+model Category {
+  id   String @id @default(cuid())
+  name String
+  slug String @unique
+
+  places Place[]
+}
+
+model AmenityGroup {
+  id    String @id @default(cuid())
+  name  String
+  slug  String @unique
+  order Int    @default(0)
+
+  amenities Amenity[]
+}
+
+model Amenity {
+  id   String  @id @default(cuid())
+  name String
+  slug String  @unique
+  icon String?
+
+  groupId String
+  group   AmenityGroup @relation(fields: [groupId], references: [id])
+
+  places PlaceAmenity[]
+}
+
+model Place {
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  description String?
+  address     String?
+  latitude    Float?
+  longitude   Float?
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  amenities PlaceAmenity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PlaceAmenity {
+  placeId   String
+  amenityId String
+
+  place   Place   @relation(fields: [placeId], references: [id])
+  amenity Amenity @relation(fields: [amenityId], references: [id])
+
+  @@id([placeId, amenityId])
 }
