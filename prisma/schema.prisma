@@ -13,59 +13,143 @@ datasource db {
   provider = "postgresql"
 }
 
-model Category {
-  id   String @id @default(cuid())
-  name String
-  slug String @unique
+enum PriceType {
+  FREE
+  PAID
+  MIXED
+}
 
-  places Place[]
+enum PricingAudience {
+  GENERAL
+  THAI_ID
+  THAI_DL
+  EXPAT
+}
+
+enum DayOfWeek {
+  MON
+  TUE
+  WED
+  THU
+  FRI
+  SAT
+  SUN
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  places    Place[]
 }
 
 model AmenityGroup {
-  id    String @id @default(cuid())
-  name  String
-  slug  String @unique
-  order Int    @default(0)
-
+  id        String    @id @default(cuid())
+  name      String
+  slug      String    @unique
   amenities Amenity[]
 }
 
 model Amenity {
-  id   String  @id @default(cuid())
-  name String
-  slug String  @unique
-  icon String?
-
-  groupId String
-  group   AmenityGroup @relation(fields: [groupId], references: [id])
-
-  places PlaceAmenity[]
-}
-
-model Place {
-  id          String  @id @default(cuid())
+  id          String          @id @default(cuid())
   name        String
-  slug        String  @unique
-  description String?
-  address     String?
-  latitude    Float?
-  longitude   Float?
-
-  categoryId String
-  category   Category @relation(fields: [categoryId], references: [id])
-
-  amenities PlaceAmenity[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  slug        String          @unique
+  groupId     String
+  group       AmenityGroup    @relation(fields: [groupId], references: [id])
+  placeLinks  PlaceAmenity[]
 }
 
 model PlaceAmenity {
-  placeId   String
-  amenityId String
+  placeId    String
+  amenityId  String
 
-  place   Place   @relation(fields: [placeId], references: [id])
-  amenity Amenity @relation(fields: [amenityId], references: [id])
+  place      Place   @relation(fields: [placeId], references: [id])
+  amenity    Amenity @relation(fields: [amenityId], references: [id])
 
   @@id([placeId, amenityId])
+}
+
+model AgeGroup {
+  id        String   @id @default(cuid())
+  name      String
+  minAge    Int
+  maxAge    Int
+  places    PlaceAgeGroup[]
+}
+
+model PlaceAgeGroup {
+  placeId     String
+  ageGroupId  String
+
+  place       Place     @relation(fields: [placeId], references: [id])
+  ageGroup    AgeGroup  @relation(fields: [ageGroupId], references: [id])
+
+  @@id([placeId, ageGroupId])
+}
+
+model PlaceSchedule {
+  id        String    @id @default(cuid())
+  placeId   String
+  day       DayOfWeek
+  openTime  String
+  closeTime String
+  isClosed  Boolean   @default(false)
+
+  place     Place     @relation(fields: [placeId], references: [id])
+}
+
+model PlacePricing {
+  id          String           @id @default(cuid())
+  placeId     String
+  priceType   PriceType
+  audience    PricingAudience
+  minPrice    Float?
+  maxPrice    Float?
+  currency    String
+
+  place       Place            @relation(fields: [placeId], references: [id])
+}
+
+model PlaceBirthdayInfo {
+  id               String   @id @default(cuid())
+  placeId          String   @unique
+  hasPackages      Boolean
+  minGuests        Int?
+  maxGuests        Int?
+  depositRequired  Boolean
+  preBookingDays   Int?
+  notes            String?
+  lastUpdatedAt    DateTime @updatedAt
+
+  place            Place    @relation(fields: [placeId], references: [id])
+}
+
+model Place {
+  id            String    @id @default(cuid())
+  name          String
+  slug          String    @unique
+  description   String?
+  address       String
+  latitude      Float
+  longitude     Float
+
+  categoryId    String
+  category      Category  @relation(fields: [categoryId], references: [id])
+
+  // Parent Mode core flags
+  hasFood       Boolean   @default(false)
+  hasWifi       Boolean   @default(false)
+  indoor        Boolean   @default(false)
+  canLeaveChild Boolean   @default(false)
+  animalContact Boolean   @default(false)
+
+  // relations
+  amenities     PlaceAmenity[]
+  ageGroups     PlaceAgeGroup[]
+  schedules     PlaceSchedule[]
+  pricing       PlacePricing[]
+  birthdayInfo  PlaceBirthdayInfo?
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
