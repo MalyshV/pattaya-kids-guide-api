@@ -20,6 +20,7 @@ const prisma = new PrismaClient({
 async function main() {
   console.log("🌱 Start seeding...");
 
+  // 1. Place Categories
   await prisma.category.createMany({
     data: [
       { name: "Indoor Playground", slug: "indoor-playground", order: 1 },
@@ -29,7 +30,19 @@ async function main() {
     skipDuplicates: true,
   });
 
-  console.log("✅ Done");
+  // 2. Event Categories
+  await prisma.eventCategory.createMany({
+    data: [
+      { name: "Workshop", slug: "workshop" },
+      { name: "Festival", slug: "festival" },
+      { name: "Holiday Event", slug: "holiday-event" },
+      { name: "Kids Activity", slug: "kids-activity" },
+      { name: "Seasonal Event", slug: "seasonal-event" },
+    ],
+    skipDuplicates: true,
+  });
+
+  console.log("✅ Seed completed");
 }
 
 main()

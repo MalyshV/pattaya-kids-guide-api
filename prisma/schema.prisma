@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,6 +5,10 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+/// ======================
+/// ENUMS (CORE)
+/// ======================
 
 enum PriceType {
   FREE
@@ -35,13 +33,132 @@ enum DayOfWeek {
   SUN
 }
 
-model Category {
-  id     String  @id @default(cuid())
-  name   String
-  slug   String  @unique
-  order  Int     @default(0)
+enum EventStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  AUTO_APPROVED
+  ARCHIVED
+}
 
-  places Place[]
+enum PlaceStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum EventSourceType {
+  USER
+  ADMIN
+  BUSINESS
+  IMPORT
+}
+
+/// ======================
+/// USER & COMMUNITY CORE
+/// ======================
+
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  displayName String?
+  reputation  Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  favoritePlaces UserFavoritePlace[]
+  favoriteEvents UserFavoriteEvent[]
+
+  visits      UserVisit[]
+  preferences UserPreference?
+}
+
+/// Пользовательские предпочтения (включая "НЕ интересно")
+model UserPreference {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  /// категории, которые НЕ интересны пользователю
+  excludedCategorySlugs String[]
+
+  /// интересующие категории (опционально)
+  preferredCategorySlugs String[]
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+/// ======================
+/// FAVORITES & VISITED (КЛЮЧ ДЛЯ ПЕРСОНАЛИЗАЦИИ)
+/// ======================
+
+model UserFavoritePlace {
+  id      String @id @default(cuid())
+  userId  String
+  placeId String
+
+  user  User  @relation(fields: [userId], references: [id])
+  place Place @relation(fields: [placeId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, placeId])
+  @@index([userId])
+  @@index([placeId])
+}
+
+model UserFavoriteEvent {
+  id      String @id @default(cuid())
+  userId  String
+  eventId String
+
+  user  User  @relation(fields: [userId], references: [id])
+  event Event @relation(fields: [eventId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, eventId])
+  @@index([userId])
+  @@index([eventId])
+}
+
+model UserVisit {
+  id      String  @id @default(cuid())
+  userId  String
+  placeId String?
+  eventId String?
+
+  visitedAt DateTime @default(now())
+  note      String?
+
+  user  User   @relation(fields: [userId], references: [id])
+  place Place? @relation(fields: [placeId], references: [id])
+  event Event? @relation(fields: [eventId], references: [id])
+
+  @@index([userId])
+  @@index([placeId])
+  @@index([eventId])
+}
+
+/// ======================
+/// PLACE CORE
+/// ======================
+
+model Category {
+  id    String @id @default(cuid())
+  name  String
+  slug  String @unique
+  order Int    @default(0)
+
+  places PlaceCategory[]
+}
+
+model PlaceCategory {
+  placeId    String
+  categoryId String
+
+  place    Place    @relation(fields: [placeId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id])
+
+  @@id([placeId, categoryId])
 }
 
 model AmenityGroup {
@@ -52,38 +169,38 @@ model AmenityGroup {
 }
 
 model Amenity {
-  id          String          @id @default(cuid())
-  name        String
-  slug        String          @unique
-  groupId     String
-  group       AmenityGroup    @relation(fields: [groupId], references: [id])
-  placeLinks  PlaceAmenity[]
+  id         String         @id @default(cuid())
+  name       String
+  slug       String         @unique
+  groupId    String
+  group      AmenityGroup   @relation(fields: [groupId], references: [id])
+  placeLinks PlaceAmenity[]
 }
 
 model PlaceAmenity {
-  placeId    String
-  amenityId  String
+  placeId   String
+  amenityId String
 
-  place      Place   @relation(fields: [placeId], references: [id])
-  amenity    Amenity @relation(fields: [amenityId], references: [id])
+  place   Place   @relation(fields: [placeId], references: [id])
+  amenity Amenity @relation(fields: [amenityId], references: [id])
 
   @@id([placeId, amenityId])
 }
 
 model AgeGroup {
-  id        String   @id @default(cuid())
-  name      String
-  minAge    Int
-  maxAge    Int
-  places    PlaceAgeGroup[]
+  id     String          @id @default(cuid())
+  name   String
+  minAge Int
+  maxAge Int
+  places PlaceAgeGroup[]
 }
 
 model PlaceAgeGroup {
-  placeId     String
-  ageGroupId  String
+  placeId    String
+  ageGroupId String
 
-  place       Place     @relation(fields: [placeId], references: [id])
-  ageGroup    AgeGroup  @relation(fields: [ageGroupId], references: [id])
+  place    Place    @relation(fields: [placeId], references: [id])
+  ageGroup AgeGroup @relation(fields: [ageGroupId], references: [id])
 
   @@id([placeId, ageGroupId])
 }
@@ -96,61 +213,148 @@ model PlaceSchedule {
   closeTime String
   isClosed  Boolean   @default(false)
 
-  place     Place     @relation(fields: [placeId], references: [id])
+  place Place @relation(fields: [placeId], references: [id])
 }
 
 model PlacePricing {
-  id          String           @id @default(cuid())
-  placeId     String
-  priceType   PriceType
-  audience    PricingAudience
-  minPrice    Float?
-  maxPrice    Float?
-  currency    String
+  id        String          @id @default(cuid())
+  placeId   String
+  priceType PriceType
+  audience  PricingAudience
+  minPrice  Float?
+  maxPrice  Float?
+  currency  String
 
-  place       Place            @relation(fields: [placeId], references: [id])
+  place Place @relation(fields: [placeId], references: [id])
 }
 
 model PlaceBirthdayInfo {
-  id               String   @id @default(cuid())
-  placeId          String   @unique
-  hasPackages      Boolean
-  minGuests        Int?
-  maxGuests        Int?
-  depositRequired  Boolean
-  preBookingDays   Int?
-  notes            String?
-  lastUpdatedAt    DateTime @updatedAt
+  id              String   @id @default(cuid())
+  placeId         String   @unique
+  hasPackages     Boolean
+  minGuests       Int?
+  maxGuests       Int?
+  depositRequired Boolean
+  preBookingDays  Int?
+  notes           String?
+  lastUpdatedAt   DateTime @updatedAt
 
-  place            Place    @relation(fields: [placeId], references: [id])
+  place Place @relation(fields: [placeId], references: [id])
 }
 
 model Place {
-  id            String    @id @default(cuid())
-  name          String
-  slug          String    @unique
-  description   String?
-  address       String
-  latitude      Float
-  longitude     Float
+  id          String  @id @default(cuid())
+  name        String
+  slug        String  @unique
+  description String?
+  address     String
+  latitude    Float
+  longitude   Float
 
-  categoryId    String
-  category      Category  @relation(fields: [categoryId], references: [id])
+  /// МОДЕРАЦИЯ + UGC
+  status          PlaceStatus @default(PENDING)
+  createdByUserId String?
+  isAnonymous     Boolean     @default(false)
 
   // Parent Mode core flags
-  hasFood       Boolean   @default(false)
-  hasWifi       Boolean   @default(false)
-  indoor        Boolean   @default(false)
-  canLeaveChild Boolean   @default(false)
-  animalContact Boolean   @default(false)
+  hasFood       Boolean @default(false)
+  hasWifi       Boolean @default(false)
+  indoor        Boolean @default(false)
+  canLeaveChild Boolean @default(false)
+  animalContact Boolean @default(false)
 
   // relations
-  amenities     PlaceAmenity[]
-  ageGroups     PlaceAgeGroup[]
-  schedules     PlaceSchedule[]
-  pricing       PlacePricing[]
-  birthdayInfo  PlaceBirthdayInfo?
+  categories   PlaceCategory[]
+  amenities    PlaceAmenity[]
+  ageGroups    PlaceAgeGroup[]
+  schedules    PlaceSchedule[]
+  pricing      PlacePricing[]
+  birthdayInfo PlaceBirthdayInfo?
+  events       Event[]
 
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  userFavoritePlaces UserFavoritePlace[]
+  userVisits         UserVisit[]
+}
+
+/// ======================
+/// EVENT SYSTEM
+/// ======================
+
+model EventCategory {
+  id   String @id @default(cuid())
+  name String
+  slug String @unique
+
+  links EventCategoryLink[]
+}
+
+model EventCategoryLink {
+  eventId    String
+  categoryId String
+
+  event    Event         @relation(fields: [eventId], references: [id])
+  category EventCategory @relation(fields: [categoryId], references: [id])
+
+  @@id([eventId, categoryId])
+}
+
+model Event {
+  id          String  @id @default(cuid())
+  title       String
+  slug        String  @unique
+  description String?
+
+  /// ДАТЫ (поддержка однодневных, многодневных и recurring)
+  startDate DateTime
+  endDate   DateTime?
+
+  /// ЛОКАЦИЯ (может существовать без Place)
+  locationName String?
+  address      String?
+  latitude     Float?
+  longitude    Float?
+
+  /// ОПЦИОНАЛЬНАЯ связь с Place (ВАЖНОЕ РЕШЕНИЕ)
+  placeId String?
+  place   Place?  @relation(fields: [placeId], references: [id])
+
+  /// КАТЕГОРИИ (независимые от Place)
+  categories EventCategoryLink[]
+
+  /// UGC + МОДЕРАЦИЯ
+  status          EventStatus     @default(PENDING)
+  sourceType      EventSourceType @default(USER)
+  createdByUserId String?
+  isAnonymous     Boolean         @default(false)
+
+  /// AI & Review (вариант B)
+  aiScore     Float?
+  aiFlags     String?
+  reviewNotes String?
+  approvedAt  DateTime?
+
+  /// ЖИЗНЕННЫЙ ЦИКЛ (автоархив)
+  autoArchive Boolean   @default(true)
+  archivedAt  DateTime?
+
+  /// МОНОТИЗАЦИЯ (на будущее)
+  isFeatured  Boolean @default(false)
+  isSponsored Boolean @default(false)
+
+  /// CLAIM БИЗНЕСОМ
+  isClaimed        Boolean @default(false)
+  organizerName    String?
+  organizerContact String?
+
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  userFavoriteEvents UserFavoriteEvent[]
+  userVisits         UserVisit[]
+
+  @@index([placeId])
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
 }
